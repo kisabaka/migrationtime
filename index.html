@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="style.css">
+<script src="https://d3js.org/d3.v6.js"></script>
+<script src="/citizenship.js"></script>
+</head>
+<body>
+  <div id="buttons"></div>
+  <div id="tooltip"></div>
+  <svg id="playground" width="1600" height="1000"></svg>
+  <script>
+    let currentYear,
+        citizenshipData,
+        hint,
+        worldMap;
+    const metric = "AvgProcessingTime";
+    const svg = d3.select("svg"),
+      width = +svg.attr("width"),
+      height = +svg.attr("height");
+
+    // Map and projection
+    const path = d3.geoPath();
+    const projection = d3.geoEqualEarth()
+      .scale(250)
+      .center([30,30])
+      .translate([width / 2, height / 4]);
+  
+    Promise.all([
+      d3.json("https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson"),
+      CitizenshipData.loadCsv("/data/citizenship.csv")
+    ]).then(function(loadData){
+      worldMap = loadData[0];
+      citizenshipData = loadData[1];
+
+      // Tooltip.
+      hint = d3.select("#tooltip");
+
+      // The map.
+      svg.append("g")
+        .attr("class", "countries")
+        .selectAll("path")
+        .data(worldMap.features)
+        .join("path")
+        .attr("d", d3.geoPath().projection(projection))
+        .attr("fill", '#ccc')
+        .on('mousemove', (ev, d) => showHint(ev, d))
+        .on('mouseout', () => hideHint());
+
+      // The legend.
+      const legend = svg.append("g")
+        .attr("class", "legend")
+        .selectAll("path")
+        .data(citizenshipData.labels(metric))
+        .enter();
+      legend
+        .append("circle")
+        .attr("r", 7)
+        .attr("cx", 200)
+        .attr("cy", (d, i) => 450 + i * 20)
+        .style("fill", (d) => d[1]);
+      legend
+        .append("text")
+        .attr("x", 220)
+        .attr("y", (d, i) => 455 + i * 20)
+        .text(d => d[0]);
+
+      // And the buttons.
+      d3.select('#buttons')
+      .selectAll('button')
+      .data(citizenshipData.getYears())
+      .enter()
+          .append('button')
+          .text((year) => year)
+          .on('click', (ev, year) => {
+            selectYear(year);
+          });
+    });
+
+    function selectYear(year) {
+      currentYear = year;
+      svg.select("g.countries")
+        .selectAll("path")
+        .data(worldMap.features)
+        .join("path")
+        .attr("fill", function (d) {
+          const region = citizenshipData.forGeoInYear(d.id, year);
+          return citizenshipData.colorScale(metric)(region.get(metric) || 0);
+        });
+    }
+
+    function showHint(ev, d) {
+      if (!currentYear) {
+        hideHint();
+        return;
+      }
+      hint.transition()
+        .duration(100)
+        .style('opacity', 0.8)
+        .style('display', 'block');
+      const geo = citizenshipData.forGeoInYear(d.id, currentYear);
+      const avgTime = geo.avgProcessingTime();
+      let text;
+      if (avgTime) {
+        text = `Citizens of ${d.properties.name} waited on average ${avgTime} days in ` +
+          ` ${currentYear}. ${geo.granted()} were granted citizenship` +
+          ` while ${geo.refused()} were refused. There were ${geo.incoming()} applications ` +
+          ` piling up from citizens of this country in ${currentYear}`;
+      } else {
+        text = `${d.properties.name} had no waiting applicants in ${currentYear}! ` +
+          ` or I'm just missing data from this year`;
+      }
+      hint.text(text)
+        .style('left', `${ev.pageX - hint.property('offsetWidth') / 4}px`)
+        .style('top', `${ev.pageY + 20}px`);
+    }
+
+    function hideHint() {
+      if (hint) {
+        hint.transition()
+          .duration(100)
+          .style('opacity', 0)
+          .style('display', 'none');
+      }
+    }
+    </script>
+</body>

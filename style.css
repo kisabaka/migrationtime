@@ -1,0 +1,31 @@
+* {
+  font-family: serif;
+}
+
+body {
+  margin: 1em 0;
+}
+
+div {
+  text-align: center;
+}
+
+button {
+  margin: 0 0.5em;
+  font-size: 14pt;
+}
+
+svg path {
+  stroke: black;
+  stroke-width: 1px; 
+}
+
+#tooltip {
+  background: rgb(209, 229, 230);
+  border: 1px solid black;
+  font-size: 12pt;
+  padding: 1em;
+  position: absolute;
+  width: 200px;
+  opacity: 0;
+}
